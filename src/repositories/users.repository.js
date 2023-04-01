@@ -1,7 +1,7 @@
 import { db } from "../config/database.connection.js";
 
-export function getUserData(id) {
-    return db.query(`SELECT id, name, image FROM users WHERE id = $1`, [id])
+export function getUserData(id, user_id) {
+    return db.query(`SELECT id, name, image, EXISTS(SELECT 1 FROM followers f WHERE f.user_id = $2 AND f.following_id = $1) AS follow FROM users WHERE id = $1`, [id, user_id])
 }
 
 // break
@@ -33,3 +33,18 @@ export function searchUsers(searchQuery) {
     [searchQuery]
   );
 }
+
+export function newSearchUsers(searchQuery) {
+  return db.query(
+    `
+      SELECT u.id, u.name, u.image,
+        (SELECT COUNT(*) FROM followers fo WHERE fo.user_id = $1 AND fo.following_id = u.id) AS follows_me
+      FROM users u
+      LEFT JOIN followers f ON f.user_id = $1 AND f.following_id = u.id
+      WHERE TRANSLATE(CONCAT('%', LOWER(u.name), '%'), 'áàâãéèêíïóôõöúçñ', 'aaaaeeeiiooooucn') LIKE TRANSLATE(concat('%', LOWER($2), '%'), 'áàâãéèêíïóôõöúçñ', 'aaaaeeeiiooooucn') || '%'
+      ORDER BY f.following_id DESC NULLS LAST, u.name
+    `,
+    searchQuery
+  );
+}
+
